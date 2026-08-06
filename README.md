@@ -12,8 +12,8 @@ This project reproduces that failure firsthand, then resolves it using **Docker 
 
 | Machine | Architecture | Confirmed via |
 |---|---|---|
-| Personal laptop (Mac, Apple Silicon) | arm64 (ARM) | `uname -a` |
-| AWS EC2 instance (Ubuntu) | x86_64 (AMD) | `uname -a` |
+| Personal laptop (Ubuntu) | x86_64 (AMD) | `uname -a` |
+| AWS EC2 instance (Ubuntu) | arm64 (ARM) | `uname -a` |
 
 ## What Was Done
 
