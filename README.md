@@ -18,7 +18,7 @@ This project reproduces that failure firsthand, then resolves it using **Docker 
 ## What Was Done
 
 ### 1. Built and pushed a single-architecture image
-A minimal Dockerfile was built and pushed from the ARM (Mac) machine using the standard `docker build` workflow:
+A minimal Dockerfile was built and pushed from the Ubuntu AMD machine using the standard `docker build` workflow:
 
 ```dockerfile
 FROM ubuntu
@@ -31,10 +31,10 @@ docker tag multiarchdemo:v1 <dockerhub-username>/multiarchdemo:v1
 docker push <dockerhub-username>/multiarchdemo:v1
 ```
 
-Docker Hub confirmed the `v1` tag existed with only **one** architecture layer underneath it — arm64, matching the machine it was built on.
+Docker Hub confirmed the `v1` tag existed with only **one** architecture layer underneath it — amd64, matching the machine it was built on.
 
 ### 2. Reproduced the cross-architecture failure
-On the EC2 instance (AMD/x86_64), after installing Docker:
+On the EC2 instance (ARM_64(Ubuntu)), after installing Docker:
 
 ```bash
 sudo apt update
@@ -46,10 +46,10 @@ docker run <dockerhub-username>/multiarchdemo:v1
 The image pulled successfully, but failed to run with:
 
 ```
-no matching manifest for linux/amd64
+no matching manifest for linux/arm64
 ```
 
-This confirmed the image only contained an arm64 layer — the AMD instance had no compatible layer to execute, demonstrating the real-world failure this project set out to solve.
+This confirmed the image only contained an amd64 layer — the ARM instance had no compatible layer to execute, demonstrating the real-world failure this project set out to solve.
 
 ### 3. Fixed it with Docker Buildx (multi-platform build)
 
@@ -84,7 +84,7 @@ docker buildx build --platform linux/amd64,linux/arm64 \
 | `--use` | Sets this builder as the default for subsequent builds |
 
 ### 4. Verified the fix
-Back on the EC2 (AMD) instance, running the multi-arch image succeeded — the Docker engine automatically detected the machine's own architecture and pulled the matching layer, with no manual selection required:
+Back on the EC2 (ARM) instance, running the multi-arch image succeeded — the Docker engine automatically detected the machine's own architecture and pulled the matching layer, with no manual selection required:
 
 ```bash
 docker run <dockerhub-username>/multiarchdemo:v3
@@ -124,22 +124,25 @@ It also solves a real open-source distribution problem: without a multi-arch ima
 
 | | |
 |---|---|
-| **Architecture confirmation** (`uname -a` on both machines) | ![Architecture check](screenshots/uname-check.png) |
+| **Architecture confirmation** (`uname -a` on linux/amd64) | ![Architecture check](screenshots/uname-check1.png) |
+| **Architecture confirmation** (`uname -a` on linux/arm64) | ![Architecture check](screenshots/uname-check2.png) |
 | **v1 — single-arch image on Docker Hub** (only one architecture listed) | ![Single-arch tag](screenshots/dockerhub-v1-single-arch.png) |
-| **The failure** — `no matching manifest for linux/amd64` | ![Cross-arch failure](screenshots/run-failure-amd64.png) |
-| **`docker builder ls`** before and after creating the `multiarch` builder | ![Builder list](screenshots/builder-ls.png) |
-| **Successful `buildx build --push`** | ![Buildx build success](screenshots/buildx-build-success.png) |
-| **Multi-arch image on Docker Hub** (both `amd64` and `arm64` listed) | ![Multi-arch tag](screenshots/dockerhub-multiarch-tag.png) |
-| **Successful run on EC2 (AMD)** with the multi-arch tag | ![Run success](screenshots/run-success-amd64.png) |
+| **The failure** — `no matching manifest for linux/arm64` | ![Cross-arch failure](screenshots/run-failure-arm64.png) |
+| **`docker builder ls`** before creating the `multiarch` builder | ![Builder list](screenshots/builder-ls-before.png) |
+| **`docker builder ls`** after creating the `multiarch` builder | ![Builder list](screenshots/builder-ls-after.png) |
+| **Successful `buildx build --push` on my machine (v2)** | ![Buildx build success](screenshots/buildx-build-success-v2.png) |
+| **Successful `buildx build --push` on EC2 instance (v3)** | ![Buildx build success](screenshots/buildx-build-success-v3.png) |
+| **Multi-arch image on Docker Hub - v2** (both `amd64` and `arm64` listed) | ![Multi-arch tag](screenshots/dockerhub-multiarch-v2.png) |
+| **Multi-arch image on Docker Hub - v3 (EC2)** (both `amd64` and `arm64` listed) | ![Multi-arch tag](screenshots/dockerhub-multiarch-v3.png) |
 
 ## Tech Stack
 
 - Docker, Docker Buildx, BuildKit
-- AWS EC2 (Ubuntu, x86_64)
+- AWS EC2 (Ubuntu, ARM_64)
 - Docker Hub (image registry)
 
 ## What I'd Do Differently Next Time
 
 - Run `docker login` proactively on any fresh machine before the first push, rather than discovering the missing credentials mid-push.
 - Double-check image tagging (`username/repo:tag`) before every push — this was the root cause of two separate failures in this project.
-- Test on genuinely separate physical/cloud architectures (as done here — Mac ARM + EC2 AMD) rather than assuming compatibility from documentation alone.
+- Test on genuinely separate physical/cloud architectures (as done here — EC2 ARM + Ubuntu AMD) rather than assuming compatibility from documentation alone.
